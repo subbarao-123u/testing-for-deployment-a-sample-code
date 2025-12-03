@@ -34,34 +34,40 @@ pipeline {
                     fi
                 '''
             }
-        }
+        }stage('Deploy Production') {
+    steps {
+        sh '''
+            echo "🚀 DEPLOYING BUILD ${BUILD_ID}..."
 
-        stage('Deploy Production') {
-            steps {
-                sh '''
-                    # Stop existing production app
-                    docker stop prod-app || true
-                    docker rm prod-app || true
-                    
-                    # Deploy new version
-                    docker run -d -p 80:5000 \
-                        --restart unless-stopped \
-                        --name prod-app \
-                        my-flask-app:${BUILD_ID}
-                    
-                    # Health check
-                    sleep 5
-                    curl_result=$(curl -s http://localhost || echo "DOWN")
-                    if echo "$curl_result" | grep -q "Hello"; then
-                        echo "🚀 DEPLOYMENT SUCCESSFUL!"
-                        echo "Live at: http://localhost (port 80)"
-                        echo "Build: ${BUILD_ID}"
-                    else
-                        echo "🚨 DEPLOYMENT FAILED - Health check"
-                        exit 1
-                    fi
-                '''
-            }
-        }
+            # Stop & remove old production container (ignore errors)
+            docker stop prod-app || true
+            docker rm prod-app || true
+
+            # Run the locally built image directly
+            docker run -d \
+                -p 80:5000 \
+                --restart unless-stopped \
+                --name prod-app \
+                my-flask-app:${BUILD_ID}
+
+            # Wait and health check
+            sleep 5
+            health_check=$(curl -s http://localhost:80 --max-time 10 || echo "DOWN")
+
+            if echo "$health_check" | grep -q "Hello"; then
+                echo "✅ DEPLOYMENT SUCCESSFUL!"
+                echo "🌐 LIVE AT: http://localhost (port 80)"
+                echo "🔖 VERSION: ${BUILD_ID}"
+                docker ps --format "table {{.Names}}\\t{{.Image}}\\t{{.Status}}" | grep prod-app
+            else
+                echo "❌ DEPLOYMENT FAILED!"
+                echo "Response: $health_check"
+                exit 1
+            fi
+        '''
     }
 }
+
+
+
+      
