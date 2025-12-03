@@ -34,39 +34,44 @@ pipeline {
                     fi
                 '''
             }
-        }stage('Deploy Production') {
+        }
+
+        stage('Deploy Production') {
     steps {
         sh '''
-            echo "🚀 DEPLOYING BUILD ${BUILD_ID}..."
-
-            # Stop & remove old production container (ignore errors)
+            echo "🚀 DEPLOYING LOCAL IMAGE my-flask-app:${BUILD_ID}..."
+            
+            # Verify image exists
+            docker images my-flask-app:${BUILD_ID} || (echo "❌ Image missing!" && exit 1)
+            
+            # Stop old prod app
             docker stop prod-app || true
             docker rm prod-app || true
-
-            # Run the locally built image directly
+            
+            # Deploy EXACT local image
             docker run -d \
                 -p 80:5000 \
                 --restart unless-stopped \
                 --name prod-app \
                 my-flask-app:${BUILD_ID}
-
-            # Wait and health check
+            
             sleep 5
             health_check=$(curl -s http://localhost:80 --max-time 10 || echo "DOWN")
-
+            
             if echo "$health_check" | grep -q "Hello"; then
-                echo "✅ DEPLOYMENT SUCCESSFUL!"
-                echo "🌐 LIVE AT: http://localhost (port 80)"
-                echo "🔖 VERSION: ${BUILD_ID}"
-                docker ps --format "table {{.Names}}\\t{{.Image}}\\t{{.Status}}" | grep prod-app
+                echo "✅ LIVE! Build ${BUILD_ID}"
+                docker ps --format "table {{.Names}}\\t{{.Ports}}\\t{{.Status}}" | grep prod-app
             else
-                echo "❌ DEPLOYMENT FAILED!"
-                echo "Response: $health_check"
+                echo "❌ Health check failed: $health_check"
                 exit 1
             fi
         '''
     }
 }
+
+
+
+
 
 
 
