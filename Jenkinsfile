@@ -11,41 +11,26 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    def dockerImage = docker.build("my-flask-app:latest")
+                    def dockerImage = docker.build("my-flask-app:${env.BUILD_ID}")
                 }
             }
         }
 
         stage('Test Container') {
             steps {
-                script {
-                    def dockerImage = docker.build("my-flask-app:latest")
-                    dockerImage.inside('--entrypoint=""') {
-                        sh '''
-                            sleep 2
-                            nohup python app.py > /dev/null 2>&1 &
-                            sleep 6
-                            python -c "
-import socket
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.settimeout(3)
-try:
-    s.connect(('localhost', 5000))
-    s.send(b'GET / HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n')
-    resp = s.recv(1024).decode()
-    if 'Hello from Docker container!' in resp:
-        print('✓ TEST PASSED')
-        exit(0)
-    else:
-        print('✗ WRONG RESPONSE')
-        exit(1)
-except:
-    print('✗ CONNECTION FAILED')
-    exit(1)
-                            "
-                        '''
-                    }
-                }
+                sh '''
+                    docker run --rm -d -p 9000:5000 --name test-app my-flask-app:${BUILD_ID}
+                    sleep 8
+                    curl_result=$(curl -s http://localhost:9000)
+                    if echo "$curl_result" | grep -q "Hello from Docker container!"; then
+                        echo "✓ TEST PASSED: $curl_result"
+                    else
+                        echo "✗ TEST FAILED: $curl_result"
+                        exit 1
+                    fi
+                    docker stop test-app
+                    docker rm test-app
+                '''
             }
         }
     }
