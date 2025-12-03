@@ -38,8 +38,8 @@ pipeline {
             steps {
                 sh '''
                     echo "🚀 DEPLOYING BUILD ${BUILD_ID}..."
-                    docker stop test-app || true
-                    docker rm test-app || true
+                    docker stop test-app-${BUILD_ID} || true
+                    docker rm test-app-${BUILD_ID} || true
                     docker run -d -p 80:5000 --restart unless-stopped --name prod-app my-flask-app:${BUILD_ID}
                     sleep 5
                     health_check=$(curl -s http://localhost:80 --max-time 10 || echo "DOWN")
