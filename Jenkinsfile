@@ -1,11 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        IMAGE_NAME = "my-flask-app"
-        IMAGE_TAG  = "latest"
-    }
-
     stages {
         stage('Checkout') {
             steps {
@@ -16,7 +11,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    dockerImage = docker.build("${IMAGE_NAME}:${IMAGE_TAG}")
+                    def dockerImage = docker.build("my-flask-app:latest")
                 }
             }
         }
@@ -24,10 +19,23 @@ pipeline {
         stage('Test Container') {
             steps {
                 script {
-                    dockerImage.inside() {  // NO port mapping - uses random port
+                    def dockerImage = docker.build("my-flask-app:latest")
+                    dockerImage.inside() {
                         sh '''
-                            curl -s http://localhost:5000 || sleep 5
-                            curl -s http://localhost:5000 | grep "Hello from Docker container!"
+                            sleep 5
+                            python -c "
+import requests
+try:
+    r = requests.get('http://localhost:5000', timeout=5)
+    if 'Hello from Docker container!' in r.text:
+        print('✓ TEST PASSED')
+    else:
+        print('✗ TEST FAILED')
+        exit(1)
+except:
+    print('✗ CONNECTION FAILED')
+    exit(1)
+                            "
                         '''
                     }
                 }
