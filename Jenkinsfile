@@ -36,16 +36,32 @@ pipeline {
             }
         }
 
-        stage('Push to Local Registry') {
+        stage('Deploy Production') {
             steps {
                 sh '''
-                    # No login needed for localhost
-                    docker push ${IMAGE_NAME}:${BUILD_ID}
-                    docker push ${IMAGE_NAME}:latest
-                    echo "✓ PUSHED TO LOCAL REGISTRY: ${IMAGE_NAME}:latest"
+                    # Stop existing production app
+                    docker stop prod-app || true
+                    docker rm prod-app || true
+                    
+                    # Deploy new version
+                    docker run -d -p 80:5000 \
+                        --restart unless-stopped \
+                        --name prod-app \
+                        my-flask-app:${BUILD_ID}
+                    
+                    # Health check
+                    sleep 5
+                    curl_result=$(curl -s http://localhost || echo "DOWN")
+                    if echo "$curl_result" | grep -q "Hello"; then
+                        echo "🚀 DEPLOYMENT SUCCESSFUL!"
+                        echo "Live at: http://localhost (port 80)"
+                        echo "Build: ${BUILD_ID}"
+                    else
+                        echo "🚨 DEPLOYMENT FAILED - Health check"
+                        exit 1
+                    fi
                 '''
             }
         }
     }
 }
-
