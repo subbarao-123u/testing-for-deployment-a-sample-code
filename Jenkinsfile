@@ -24,13 +24,15 @@ pipeline {
         stage('Test Container') {
             steps {
                 script {
-                    dockerImage.inside("-p 8080:5000") {
-                        sh 'curl -s http://localhost:5000 | grep "Hello from Docker container!"'
+                    dockerImage.inside() {  // NO port mapping - uses random port
+                        sh '''
+                            curl -s http://localhost:5000 || sleep 5
+                            curl -s http://localhost:5000 | grep "Hello from Docker container!"
+                        '''
                     }
                 }
             }
         }
     }
 }
-
 
