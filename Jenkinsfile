@@ -24,9 +24,8 @@ pipeline {
         stage('Test Container') {
             steps {
                 script {
-                    dockerImage.inside("-p 5000:5000") {
+                    dockerImage.inside("-p 8080:5000") {  // Maps host 8080 -> container 5000
                         sh 'curl -s http://localhost:5000 | grep "Hello from Docker container!"'
-                    }
                 }
             }
         }
